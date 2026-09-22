@@ -49,6 +49,8 @@ export const TABS: TabDef[] = [
 const ITEM_SIZE = 44;
 /** Respiro entre ícones — pedido explicitamente maior. */
 const ITEM_GAP = spacing.md;
+/** Eleva a barra acima da borda inferior segura, afastando-a do bordo. */
+export const NAV_LIFT = spacing.lg;
 
 /** Anel que se expande e desvanece — a "onda" irradiando do ícone. */
 function Ripple({ trigger, delay }: { trigger: number; delay: number }) {
@@ -148,7 +150,10 @@ export default function NavBar({
 
   return (
     <View
-      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+      style={[
+        styles.wrapper,
+        { paddingBottom: Math.max(insets.bottom, spacing.md) + NAV_LIFT },
+      ]}
       pointerEvents="box-none"
     >
       <View style={styles.pill}>

@@ -31,7 +31,7 @@ begin
   end;
 
   if tg_table_name = 'sales' then
-    -- Ex.: "Caio Costa · 21/09 20:14" ou "Venda avulsa · 21/09 20:14"
+    -- Ex.: "Kaio Costa · 21/09 20:14" ou "Venda avulsa · 21/09 20:14"
     v_summary := coalesce(nullif(trim(to_jsonb(v_row)->>'customer_name'), ''), 'Venda avulsa')
       || ' · ' || to_char((to_jsonb(v_row)->>'sold_at')::timestamptz at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI');
   elsif v_summary_col is not null then

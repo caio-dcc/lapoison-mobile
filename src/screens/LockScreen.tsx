@@ -2,7 +2,7 @@
  * Tela de senha + seleção de operador. Usa o teclado nativo do sistema
  * (TextInput padrão) — mais previsível do que um teclado componentizado.
  *
- * Após a senha correta, pede para escolher quem está operando (Caio ou
+ * Após a senha correta, pede para escolher quem está operando (Kaio ou
  * Matheus) — essa escolha identifica o autor de cada venda na auditoria.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';

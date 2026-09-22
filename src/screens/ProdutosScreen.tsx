@@ -31,6 +31,7 @@ import {
   STROKE,
 } from '../components/icons';
 import type { LucideIcon } from 'lucide-react-native';
+import { NAV_LIFT } from '../components/NavBar';
 import {
   Card,
   ErrorState,
@@ -522,7 +523,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: 130,
+    bottom: 130 + NAV_LIFT,
     width: 56,
     height: 56,
     borderRadius: radius.pill,

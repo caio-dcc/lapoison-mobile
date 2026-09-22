@@ -2,7 +2,7 @@
  * Auditoria — trilha de CRUD. Lê a tabela audit_log (mantida por
  * triggers em products, customers, sales, day_notes e day_photos).
  *
- * O operador (Caio/Matheus) só é confiável em vendas — ver comentário
+ * O operador (Kaio/Matheus) só é confiável em vendas — ver comentário
  * em supabase/migrations/0008_auditoria.sql sobre por que clientes e
  * produtos ainda não carregam o operador.
  */

@@ -23,7 +23,7 @@ const KEY_SESSION = 'laviela.lock.session';
 const KEY_OPERATOR = 'laviela.lock.operator';
 
 /** Donos que operam o app — identifica quem fez cada venda na auditoria. */
-export const OPERATORS = ['Caio', 'Matheus'] as const;
+export const OPERATORS = ['Kaio', 'Matheus'] as const;
 export type Operator = (typeof OPERATORS)[number];
 
 /** Senha vigente: a personalizada, ou a inicial. */

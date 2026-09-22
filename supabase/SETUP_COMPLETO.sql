@@ -1898,7 +1898,7 @@ end $$;
 
 -- =====================================================================
 -- 0008 — AUDITORIA
--- Login por operador (Caio / Matheus, sem senha por pessoa — a trava
+-- Login por operador (Kaio / Matheus, sem senha por pessoa — a trava
 -- de acesso do app já é a senha única) e trilha de auditoria de CRUD.
 --
 -- IMPORTANTE sobre o operador: testado e descartado o caminho de
@@ -1922,7 +1922,7 @@ end $$;
 create table if not exists audit_log (
   id           bigint generated always as identity primary key,
   at           timestamptz not null default now(),
-  operator     text,                    -- 'Caio' | 'Matheus' | null (desconhecido)
+  operator     text,                    -- 'Kaio' | 'Matheus' | null (desconhecido)
   table_name   text not null,
   operation    text not null,           -- 'INSERT' | 'UPDATE' | 'DELETE'
   row_id       text,                    -- id da linha afetada (texto: cobre uuid e bigint)
@@ -2206,7 +2206,7 @@ begin
   end;
 
   if tg_table_name = 'sales' then
-    -- Ex.: "Caio Costa · 21/09 20:14" ou "Venda avulsa · 21/09 20:14"
+    -- Ex.: "Kaio Costa · 21/09 20:14" ou "Venda avulsa · 21/09 20:14"
     v_summary := coalesce(nullif(trim(to_jsonb(v_row)->>'customer_name'), ''), 'Venda avulsa')
       || ' · ' || to_char((to_jsonb(v_row)->>'sold_at')::timestamptz at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI');
   elsif v_summary_col is not null then

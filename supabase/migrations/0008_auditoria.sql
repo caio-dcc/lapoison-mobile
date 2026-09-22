@@ -1,6 +1,6 @@
 -- =====================================================================
 -- 0008 — AUDITORIA
--- Login por operador (Caio / Matheus, sem senha por pessoa — a trava
+-- Login por operador (Kaio / Matheus, sem senha por pessoa — a trava
 -- de acesso do app já é a senha única) e trilha de auditoria de CRUD.
 --
 -- IMPORTANTE sobre o operador: testado e descartado o caminho de
@@ -24,7 +24,7 @@
 create table if not exists audit_log (
   id           bigint generated always as identity primary key,
   at           timestamptz not null default now(),
-  operator     text,                    -- 'Caio' | 'Matheus' | null (desconhecido)
+  operator     text,                    -- 'Kaio' | 'Matheus' | null (desconhecido)
   table_name   text not null,
   operation    text not null,           -- 'INSERT' | 'UPDATE' | 'DELETE'
   row_id       text,                    -- id da linha afetada (texto: cobre uuid e bigint)

@@ -46,6 +46,7 @@ import {
   Squish,
 } from '../components/ui';
 import Glass from '../components/Glass';
+import { NAV_LIFT } from '../components/NavBar';
 import {
   Cake,
   Camera,
@@ -837,7 +838,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: 124,
+    bottom: 124 + NAV_LIFT,
     width: 54,
     height: 54,
     borderRadius: radius.pill,
