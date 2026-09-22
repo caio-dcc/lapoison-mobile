@@ -1,14 +1,20 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
   ViewStyle,
 } from 'react-native';
-import { brl, colors, font, radius, spacing } from '../theme';
-import { STROKE, TriangleAlert } from './icons';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { alpha, brl, colors, family, font, radius, spacing } from '../theme';
+import { STROKE, TriangleAlert, User } from './icons';
 import type { LucideIcon } from 'lucide-react-native';
 
 export function Card({
@@ -40,7 +46,7 @@ export function StatTile({
     <View style={[styles.tile, tone === 'accent' && styles.tileAccent]}>
       <Text style={styles.tileLabel}>{label}</Text>
       <Text
-        style={[styles.tileValue, tone === 'accent' && { color: colors.accent }]}
+        style={styles.tileValue}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.7}
@@ -99,7 +105,7 @@ export function PrimaryButton({
       accessibilityRole="button"
     >
       {loading ? (
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={colors.bg} />
       ) : (
         <Text style={styles.primaryBtnText}>{label}</Text>
       )}
@@ -190,7 +196,92 @@ export function Skeleton({ height = 80, style }: { height?: number; style?: View
   return <View style={[styles.skeleton, { height }, style]} />;
 }
 
+/**
+ * Avatar do cliente: foto quando existe, inicial quando não.
+ * `size` controla tudo para servir tanto na grid quanto na ficha.
+ */
+export function Avatar({
+  name,
+  uri,
+  size = 56,
+}: {
+  name: string;
+  uri?: string | null;
+  size?: number;
+}) {
+  const initial = (name ?? '').trim().charAt(0).toUpperCase();
+
+  return (
+    <View
+      style={[
+        styles.avatar,
+        { width: size, height: size, borderRadius: size / 2 },
+      ]}
+    >
+      {uri ? (
+        <Image
+          source={{ uri }}
+          style={{ width: size, height: size, borderRadius: size / 2 }}
+          resizeMode="cover"
+        />
+      ) : initial ? (
+        <Text style={[styles.avatarInitial, { fontSize: size * 0.38 }]}>
+          {initial}
+        </Text>
+      ) : (
+        <User size={size * 0.44} strokeWidth={STROKE} color={colors.textMuted} />
+      )}
+    </View>
+  );
+}
+
+/** Pressable que encolhe ao toque — usado em cards e itens de grid. */
+export function Squish({
+  children,
+  onPress,
+  onLongPress,
+  style,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+  onLongPress?: () => void;
+  style?: ViewStyle | ViewStyle[];
+  disabled?: boolean;
+}) {
+  const scale = useSharedValue(1);
+  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      disabled={disabled}
+      onPressIn={() => {
+        scale.value = withSpring(0.96, { damping: 16, stiffness: 380 });
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, { damping: 16, stiffness: 380 });
+      }}
+    >
+      <Animated.View style={[style, aStyle]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  avatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: alpha.p08,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  avatarInitial: {
+    fontFamily: family.displayBold,
+    color: colors.text,
+  },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -201,7 +292,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.textMuted,
     fontSize: font.small,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
     marginBottom: spacing.md,
@@ -217,8 +308,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileAccent: {
-    borderColor: 'rgba(43,168,74,0.35)',
-    backgroundColor: colors.navActiveBg,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceStrong,
   },
   tileLabel: {
     color: colors.textMuted,
@@ -230,7 +321,7 @@ const styles = StyleSheet.create({
   tileValue: {
     color: colors.text,
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
   },
   tileHint: {
     color: colors.textFaint,
@@ -246,16 +337,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   chipSelected: {
-    backgroundColor: colors.navActiveBg,
-    borderColor: colors.accent,
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.borderStrong,
   },
   chipText: {
     color: colors.textMuted,
     fontSize: font.small,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   chipTextSelected: {
-    color: colors.accent,
+    color: colors.text,
   },
   primaryBtn: {
     backgroundColor: colors.accent,
@@ -268,9 +359,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
   },
   primaryBtnText: {
-    color: '#fff',
+    color: colors.bg,
     fontSize: font.body,
-    fontWeight: '700',
+    fontFamily: family.bodySemi,
     letterSpacing: 0.3,
   },
   miniBarRow: {
@@ -298,7 +389,7 @@ const styles = StyleSheet.create({
   miniBarValue: {
     color: colors.text,
     fontSize: font.small,
-    fontWeight: '600',
+    fontFamily: family.bodyMedium,
     width: 86,
     textAlign: 'right',
   },
@@ -313,7 +404,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
@@ -329,11 +420,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.accent,
+    borderColor: colors.borderStrong,
   },
   retryText: {
-    color: colors.accent,
-    fontWeight: '600',
+    color: colors.text,
+    fontFamily: family.bodySemi,
     fontSize: font.small,
   },
   skeleton: {

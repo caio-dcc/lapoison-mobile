@@ -13,32 +13,42 @@ import {
 } from 'react-native';
 import {
   createSale,
+  customerPhotoUrl,
+  fetchCustomers,
   fetchProducts,
   groupByCategory,
   itemMeatGrams,
   itemUnitPrice,
+  upsertCustomer,
 } from '../lib/api';
 import type {
   ChosenOption,
+  Customer,
   OptionValue,
   PaymentMethod,
   Product,
   ProductCategory,
   SaleItem,
 } from '../lib/types';
-import { PAYMENT_LABELS, formatMeat } from '../lib/types';
-import { brl, colors, font, radius, spacing } from '../theme';
+import { PAYMENT_LABELS, formatMeat, formatPhone } from '../lib/types';
+import { alpha, brl, colors, family, font, radius, spacing } from '../theme';
 import {
   Beef,
   Beer,
+  Check,
   Croissant,
   Hamburger,
   Minus,
   Plus,
   STROKE,
+  Search,
+  User,
+  UserPlus,
+  X,
 } from '../components/icons';
 import type { LucideIcon } from 'lucide-react-native';
 import {
+  Avatar,
   Card,
   Chip,
   ErrorState,
@@ -46,6 +56,7 @@ import {
   SectionTitle,
   Skeleton,
 } from '../components/ui';
+import Glass from '../components/Glass';
 
 const CATEGORY_META: Record<ProductCategory, { label: string; Icon: LucideIcon }> = {
   comida: { label: 'Comida', Icon: Hamburger },
@@ -250,7 +261,9 @@ export default function RegistroScreen({ onSaved }: { onSaved?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<ProductCategory>('comida');
   const [cart, setCart] = useState<SaleItem[]>([]);
-  const [customer, setCustomer] = useState('');
+  // Cliente é cadastrado antes da venda e associado a ela.
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [payment, setPayment] = useState<PaymentMethod | null>(null);
   const [saving, setSaving] = useState(false);
   const [sheetProduct, setSheetProduct] = useState<Product | null>(null);
@@ -360,7 +373,7 @@ export default function RegistroScreen({ onSaved }: { onSaved?: () => void }) {
 
   const reset = useCallback(() => {
     setCart([]);
-    setCustomer('');
+    setCustomer(null);
     setPayment(null);
     setCategory('comida');
   }, []);
@@ -370,7 +383,8 @@ export default function RegistroScreen({ onSaved }: { onSaved?: () => void }) {
     setSaving(true);
     try {
       await createSale({
-        customerName: customer,
+        customerName: customer?.name ?? '',
+        customerId: customer?.id ?? null,
         items: cart,
         paymentMethod: payment,
       });
@@ -412,14 +426,48 @@ export default function RegistroScreen({ onSaved }: { onSaved?: () => void }) {
 
         <View style={styles.block}>
           <SectionTitle>Cliente</SectionTitle>
-          <TextInput
-            value={customer}
-            onChangeText={setCustomer}
-            placeholder="Nome do cliente (opcional)"
-            placeholderTextColor={colors.textFaint}
-            style={styles.input}
-            returnKeyType="done"
-          />
+          <Pressable
+            onPress={() => setPickerOpen(true)}
+            style={styles.customerBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Escolher cliente"
+          >
+            {customer ? (
+              <>
+                <Avatar
+                  name={customer.name}
+                  uri={customerPhotoUrl(customer.photo_path)}
+                  size={38}
+                />
+                <View style={styles.customerBody}>
+                  <Text style={styles.customerName} numberOfLines={1}>
+                    {customer.name}
+                  </Text>
+                  {customer.phone ? (
+                    <Text style={styles.customerMeta}>
+                      {formatPhone(customer.phone)}
+                    </Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  onPress={() => setCustomer(null)}
+                  hitSlop={10}
+                  accessibilityLabel="Remover cliente da venda"
+                >
+                  <X size={17} strokeWidth={STROKE} color={colors.textMuted} />
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <View style={styles.customerEmptyIcon}>
+                  <User size={18} strokeWidth={STROKE} color={colors.textMuted} />
+                </View>
+                <Text style={styles.customerPlaceholder}>
+                  Associar a um cliente (opcional)
+                </Text>
+              </>
+            )}
+          </Pressable>
         </View>
 
         <View style={styles.block}>
@@ -579,17 +627,304 @@ export default function RegistroScreen({ onSaved }: { onSaved?: () => void }) {
           setSheetProduct(null);
         }}
       />
+
+      <CustomerPicker
+        visible={pickerOpen}
+        selectedId={customer?.id ?? null}
+        onClose={() => setPickerOpen(false)}
+        onPick={(c) => {
+          setCustomer(c);
+          setPickerOpen(false);
+        }}
+      />
     </KeyboardAvoidingView>
+  );
+}
+
+
+// ---------------------------------------------------------------------
+// Seletor de cliente — busca, escolhe ou cadastra na hora
+// ---------------------------------------------------------------------
+function CustomerPicker({
+  visible,
+  selectedId,
+  onClose,
+  onPick,
+}: {
+  visible: boolean;
+  selectedId: string | null;
+  onClose: () => void;
+  onPick: (c: Customer | null) => void;
+}) {
+  const [rows, setRows] = useState<Customer[] | null>(null);
+  const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setQuery('');
+    void (async () => {
+      try {
+        setRows(await fetchCustomers());
+      } catch {
+        setRows([]);
+      }
+    })();
+  }, [visible]);
+
+  const filtered = useMemo(() => {
+    if (!rows) return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    const digits = q.replace(/\D/g, '');
+    return rows.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (digits.length >= 3 && (c.phone ?? '').replace(/\D/g, '').includes(digits))
+    );
+  }, [rows, query]);
+
+  /** Cadastro rápido: o nome digitado na busca vira um cliente novo. */
+  const quickCreate = useCallback(async () => {
+    const name = query.trim();
+    if (name.length < 2 || creating) return;
+    setCreating(true);
+    try {
+      const id = await upsertCustomer({
+        name,
+        phone: null,
+        notes: null,
+        birth_date: null,
+      });
+      const fresh = await fetchCustomers(true);
+      onPick(fresh.find((c) => c.id === id) ?? null);
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message ?? 'Não foi possível cadastrar');
+    } finally {
+      setCreating(false);
+    }
+  }, [query, creating, onPick]);
+
+  const exactExists = useMemo(
+    () =>
+      (rows ?? []).some(
+        (c) => c.name.trim().toLowerCase() === query.trim().toLowerCase()
+      ),
+    [rows, query]
+  );
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.pickerRoot}>
+        <Pressable style={styles.pickerBackdrop} onPress={onClose} />
+        <Glass style={styles.pickerSheet} intensity={30} rounded={radius.xl}>
+          <View style={styles.pickerHead}>
+            <Text style={styles.pickerTitle}>Cliente</Text>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <X size={20} strokeWidth={STROKE} color={colors.textMuted} />
+            </Pressable>
+          </View>
+
+          <View style={styles.pickerSearch}>
+            <Search size={16} strokeWidth={STROKE} color={colors.textMuted} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Buscar ou digitar um nome novo"
+              placeholderTextColor={colors.textFaint}
+              style={styles.pickerInput}
+              autoCapitalize="words"
+            />
+          </View>
+
+          <ScrollView
+            style={styles.pickerList}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Venda avulsa: sem cliente associado. */}
+            <Pressable onPress={() => onPick(null)} style={styles.pickerRow}>
+              <View style={styles.customerEmptyIcon}>
+                <User size={17} strokeWidth={STROKE} color={colors.textMuted} />
+              </View>
+              <Text style={styles.pickerRowName}>Sem cliente (avulsa)</Text>
+              {selectedId === null ? (
+                <Check size={17} strokeWidth={STROKE} color={colors.text} />
+              ) : null}
+            </Pressable>
+
+            {query.trim().length >= 2 && !exactExists ? (
+              <Pressable
+                onPress={() => void quickCreate()}
+                style={[styles.pickerRow, styles.pickerRowNew]}
+                disabled={creating}
+              >
+                <View style={styles.customerEmptyIcon}>
+                  <UserPlus size={17} strokeWidth={STROKE} color={colors.text} />
+                </View>
+                <Text style={styles.pickerRowName} numberOfLines={1}>
+                  Cadastrar {'“'}{query.trim()}{'”'}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {rows === null ? (
+              <Skeleton height={54} style={{ marginTop: spacing.sm }} />
+            ) : (
+              filtered.map((c) => (
+                <Pressable
+                  key={c.id}
+                  onPress={() => onPick(c)}
+                  style={styles.pickerRow}
+                >
+                  <Avatar
+                    name={c.name}
+                    uri={customerPhotoUrl(c.photo_path)}
+                    size={34}
+                  />
+                  <View style={styles.pickerRowBody}>
+                    <Text style={styles.pickerRowName} numberOfLines={1}>
+                      {c.name}
+                    </Text>
+                    {c.phone ? (
+                      <Text style={styles.pickerRowMeta}>
+                        {formatPhone(c.phone)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {selectedId === c.id ? (
+                    <Check size={17} strokeWidth={STROKE} color={colors.text} />
+                  ) : null}
+                </Pressable>
+              ))
+            )}
+
+            <View style={{ height: spacing.xl }} />
+          </ScrollView>
+        </Glass>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingTop: spacing.sm },
+
+  // --- cliente na venda ---
+  customerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  customerBody: { flex: 1 },
+  customerName: {
+    fontFamily: family.bodySemi,
+    fontSize: font.body,
+    color: colors.text,
+  },
+  customerMeta: {
+    fontFamily: family.body,
+    fontSize: font.tiny,
+    color: colors.textFaint,
+    marginTop: 1,
+  },
+  customerEmptyIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: alpha.p06,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  customerPlaceholder: {
+    flex: 1,
+    fontFamily: family.body,
+    fontSize: font.body,
+    color: colors.textFaint,
+  },
+
+  // --- seletor de cliente ---
+  pickerRoot: { flex: 1, justifyContent: 'flex-end' },
+  pickerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  pickerSheet: { maxHeight: '82%', padding: spacing.lg },
+  pickerHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  pickerTitle: {
+    fontFamily: family.displayBold,
+    fontSize: font.h2,
+    color: colors.text,
+  },
+  pickerSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: alpha.p06,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pickerInput: {
+    flex: 1,
+    color: colors.text,
+    fontFamily: family.body,
+    fontSize: font.body,
+    padding: 0,
+  },
+  pickerList: { marginTop: spacing.md },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: alpha.p06,
+  },
+  pickerRowNew: {
+    backgroundColor: alpha.p06,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: 0,
+    marginTop: spacing.xs,
+  },
+  pickerRowBody: { flex: 1 },
+  pickerRowName: {
+    flex: 1,
+    fontFamily: family.bodyMedium,
+    fontSize: font.body,
+    color: colors.text,
+  },
+  pickerRowMeta: {
+    fontFamily: family.body,
+    fontSize: font.tiny,
+    color: colors.textFaint,
+    marginTop: 1,
+  },
+
   header: { marginBottom: spacing.xl },
   title: {
     color: colors.text,
     fontSize: font.h1,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     letterSpacing: -0.5,
   },
   subtitle: { color: colors.textMuted, fontSize: font.small, marginTop: 2 },
@@ -619,7 +954,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   catIcon: { marginBottom: 4 },
-  catLabel: { color: colors.textMuted, fontSize: font.small, fontWeight: '600' },
+  catLabel: { color: colors.textMuted, fontSize: font.small, fontFamily: family.bodySemi },
   catBadge: {
     position: 'absolute',
     top: 6,
@@ -632,7 +967,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  catBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  catBadgeText: { color: colors.text, fontSize: 10, fontFamily: family.displayBold },
   productRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -649,7 +984,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.navActiveBg,
   },
   productInfo: { flex: 1 },
-  productName: { color: colors.text, fontSize: font.body, fontWeight: '600' },
+  productName: { color: colors.text, fontSize: font.body, fontFamily: family.bodySemi },
   productMeta: { color: colors.textMuted, fontSize: font.small, marginTop: 2 },
   addBtn: {
     width: 34,
@@ -671,7 +1006,7 @@ const styles = StyleSheet.create({
   stepQty: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     minWidth: 18,
     textAlign: 'center',
   },
@@ -685,7 +1020,7 @@ const styles = StyleSheet.create({
   summaryQty: {
     color: colors.accent,
     fontSize: font.small,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     width: 28,
   },
   summaryName: { color: colors.text, fontSize: font.body },
@@ -697,7 +1032,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   insumoRow: {
     flexDirection: 'row',
@@ -721,9 +1056,9 @@ const styles = StyleSheet.create({
   totalLabel: {
     color: colors.textMuted,
     fontSize: font.body,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
-  totalValue: { color: colors.accent, fontSize: font.h3, fontWeight: '800' },
+  totalValue: { color: colors.accent, fontSize: font.h3, fontFamily: family.displayBold },
   emptyText: {
     color: colors.textMuted,
     fontSize: font.small,
@@ -750,7 +1085,7 @@ const styles = StyleSheet.create({
   },
   footerInfo: { paddingLeft: spacing.sm },
   footerCount: { color: colors.textMuted, fontSize: font.tiny },
-  footerTotal: { color: colors.text, fontSize: font.h3, fontWeight: '800' },
+  footerTotal: { color: colors.text, fontSize: font.h3, fontFamily: family.displayBold },
 
   // Folha de opções
   sheetBackdrop: {
@@ -775,7 +1110,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginBottom: spacing.lg,
   },
-  sheetTitle: { color: colors.text, fontSize: font.h3, fontWeight: '700' },
+  sheetTitle: { color: colors.text, fontSize: font.h3, fontFamily: family.displayBold },
   sheetSubtitle: {
     color: colors.textMuted,
     fontSize: font.small,
@@ -786,12 +1121,12 @@ const styles = StyleSheet.create({
   sheetGroupName: {
     color: colors.textMuted,
     fontSize: font.small,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     marginBottom: spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  sheetOptional: { color: colors.textFaint, fontWeight: '400' },
+  sheetOptional: { color: colors.textFaint, fontFamily: family.body },
   sheetOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   optionBtn: {
     flexDirection: 'row',
@@ -808,7 +1143,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.navActiveBg,
     borderColor: colors.accent,
   },
-  optionText: { color: colors.textMuted, fontSize: font.small, fontWeight: '600' },
+  optionText: { color: colors.textMuted, fontSize: font.small, fontFamily: family.bodySemi },
   optionDelta: { color: colors.accentSoft, fontSize: font.tiny },
   sheetFooter: {
     flexDirection: 'row',
@@ -823,6 +1158,6 @@ const styles = StyleSheet.create({
   sheetFooterValue: {
     color: colors.text,
     fontSize: font.h3,
-    fontWeight: '800',
+    fontFamily: family.displayBold,
   },
 });

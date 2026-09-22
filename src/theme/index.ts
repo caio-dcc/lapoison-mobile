@@ -1,41 +1,54 @@
 /**
- * Paleta da marca:
- *   Shadow Grey   #272727  — base escura
- *   Forest Green  #248232  — verde profundo
- *   Medium Jungle #2BA84A  — verde de acento (item ativo, destaques)
- *   Porcelain     #FCFFFC  — texto/claro
+ * Paleta: monocromática por decisão de design.
+ *   Shadow Grey #272727 — fundo
+ *   Porcelain   #FCFFFC — detalhes, ícones e fontes
+ * Sem verde. A hierarquia vem de opacidade e transparência, não de cor.
  */
 export const brand = {
   shadowGrey: '#272727',
-  forestGreen: '#248232',
-  mediumJungle: '#2BA84A',
   porcelain: '#FCFFFC',
 } as const;
 
+/** Porcelain com alfa — a base de quase todo detalhe do app. */
+export const alpha = {
+  p04: 'rgba(252, 255, 252, 0.04)',
+  p06: 'rgba(252, 255, 252, 0.06)',
+  p08: 'rgba(252, 255, 252, 0.08)',
+  p12: 'rgba(252, 255, 252, 0.12)',
+  p16: 'rgba(252, 255, 252, 0.16)',
+  p24: 'rgba(252, 255, 252, 0.24)',
+  p40: 'rgba(252, 255, 252, 0.40)',
+  p60: 'rgba(252, 255, 252, 0.60)',
+  p80: 'rgba(252, 255, 252, 0.80)',
+} as const;
+
 export const colors = {
-  bg: '#1C1C1C',
-  bgElevated: '#222222',
-  surface: brand.shadowGrey,
-  surfaceAlt: '#333333',
+  bg: brand.shadowGrey,
+  bgElevated: '#2E2E2E',
+  /** Superfícies de vidro: translúcidas sobre o fundo. */
+  surface: alpha.p06,
+  surfaceAlt: alpha.p08,
+  surfaceStrong: alpha.p12,
 
-  navBar: '#232323',
-  navBorder: '#3A3A3A',
-  navActiveBg: '#16301C',
+  navBar: 'rgba(39, 39, 39, 0.72)',
+  navBorder: alpha.p12,
+  navActiveBg: alpha.p12,
 
-  accent: brand.mediumJungle,
-  accentDeep: brand.forestGreen,
-  accentSoft: '#4FC96C',
-  accentGlow: 'rgba(43, 168, 74, 0.35)',
+  /** Acento = porcelain. Intensidade se resolve por opacidade. */
+  accent: brand.porcelain,
+  accentSoft: alpha.p60,
+  accentGlow: alpha.p08,
 
   text: brand.porcelain,
-  textMuted: '#9A9A9A',
-  textFaint: '#6B6B6B',
+  textMuted: alpha.p60,
+  textFaint: alpha.p40,
 
-  success: brand.mediumJungle,
-  danger: '#E05B5B',
-  info: '#7FB77E',
+  success: brand.porcelain,
+  danger: '#E88C8C',
+  info: alpha.p60,
 
-  border: '#3A3A3A',
+  border: alpha.p12,
+  borderStrong: alpha.p24,
 } as const;
 
 export const spacing = {
@@ -64,17 +77,17 @@ export const font = {
   tiny: 11,
 } as const;
 
-/** Formata valores em reais. */
-export function brl(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value ?? 0);
-}
+/**
+ * Famílias carregadas em App.tsx.
+ *   Space Grotesk — títulos e números (geométrica, moderna)
+ *   Inter         — texto corrido (legível em corpo pequeno)
+ */
+export const family = {
+  display: 'SpaceGrotesk_600SemiBold',
+  displayBold: 'SpaceGrotesk_700Bold',
+  body: 'Inter_400Regular',
+  bodyMedium: 'Inter_500Medium',
+  bodySemi: 'Inter_600SemiBold',
+} as const;
 
-export function brlCompact(value: number): string {
-  if (Math.abs(value) >= 1000) {
-    return `R$ ${(value / 1000).toFixed(1).replace('.', ',')}k`;
-  }
-  return brl(value);
-}
+export { brl, brlCompact } from '../lib/metrics';

@@ -7,17 +7,24 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing } from '../theme';
+import { BlurView } from 'expo-blur';
+import { alpha, colors, family, radius, spacing } from '../theme';
 import {
   CalendarDays,
   ClipboardList,
   Hamburger,
   LayoutDashboard,
   STROKE,
+  Users,
 } from './icons';
 import type { LucideIcon } from 'lucide-react-native';
 
-export type TabKey = 'dashboard' | 'registro' | 'calendario' | 'produtos';
+export type TabKey =
+  | 'dashboard'
+  | 'registro'
+  | 'clientes'
+  | 'calendario'
+  | 'produtos';
 
 interface TabDef {
   key: TabKey;
@@ -29,12 +36,14 @@ interface TabDef {
 export const TABS: TabDef[] = [
   { key: 'dashboard', Icon: LayoutDashboard, label: 'Dashboard' },
   { key: 'registro', Icon: Hamburger, label: 'Registro' },
+  { key: 'clientes', Icon: Users, label: 'Clientes' },
   { key: 'calendario', Icon: CalendarDays, label: 'Calendário' },
   { key: 'produtos', Icon: ClipboardList, label: 'Produtos' },
 ];
 
-const ITEM_SIZE = 46;
-const ITEM_GAP = spacing.xs;
+const ITEM_SIZE = 44;
+/** Respiro entre ícones — pedido explicitamente maior. */
+const ITEM_GAP = spacing.md;
 
 function NavItem({
   tab,
@@ -49,12 +58,12 @@ function NavItem({
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    progress.value = withTiming(active ? 1 : 0, { duration: 220 });
+    progress.value = withTiming(active ? 1 : 0, { duration: 240 });
   }, [active, progress]);
 
   const bgStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
-    transform: [{ scale: 0.8 + progress.value * 0.2 }],
+    transform: [{ scale: 0.82 + progress.value * 0.18 }],
   }));
 
   const contentStyle = useAnimatedStyle(() => ({
@@ -62,34 +71,35 @@ function NavItem({
   }));
 
   const glyphStyle = useAnimatedStyle(() => ({
-    opacity: 0.55 + progress.value * 0.45,
+    opacity: 0.5 + progress.value * 0.5,
+    transform: [{ translateY: -progress.value * 1.5 }],
   }));
 
   return (
     <Pressable
       onPress={onPress}
       onPressIn={() => {
-        scale.value = withSpring(0.9, { damping: 14, stiffness: 320 });
+        scale.value = withSpring(0.88, { damping: 14, stiffness: 340 });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, { damping: 14, stiffness: 320 });
+        scale.value = withSpring(1, { damping: 14, stiffness: 340 });
       }}
       accessibilityRole="tab"
       accessibilityLabel={tab.label}
       accessibilityState={{ selected: active }}
-      hitSlop={6}
+      hitSlop={8}
       style={styles.itemPressable}
     >
       <Animated.View style={[styles.itemInner, contentStyle]}>
-        {/* Glow externo do item ativo (halo verde difuso) */}
+        {/* Halo difuso do item ativo — porcelain, sem cor. */}
         <Animated.View pointerEvents="none" style={[styles.glow, bgStyle]} />
-        {/* Cápsula de fundo do item ativo */}
+        {/* Cápsula de fundo translúcida */}
         <Animated.View pointerEvents="none" style={[styles.activeBg, bgStyle]} />
         <Animated.View style={glyphStyle}>
           <tab.Icon
-            size={22}
+            size={21}
             strokeWidth={STROKE}
-            color={active ? colors.accent : colors.textMuted}
+            color={active ? colors.text : colors.textMuted}
           />
         </Animated.View>
       </Animated.View>
@@ -112,15 +122,32 @@ export default function NavBar({
       pointerEvents="box-none"
     >
       <View style={styles.pill}>
-        {TABS.map((tab) => (
-          <NavItem
-            key={tab.key}
-            tab={tab}
-            active={tab.key === active}
-            onPress={() => onChange(tab.key)}
-          />
-        ))}
+        {/*
+          Vidro da barra. No Android o blur real exige SDK 31+; sem ele o
+          BlurView vira uma View translúcida — por isso a cor de fundo do
+          pill já funciona sozinha.
+        */}
+        <BlurView
+          intensity={32}
+          tint="dark"
+          blurMethod="none"
+          style={styles.pillBlur}
+        />
+        <View pointerEvents="none" style={styles.pillVeil} />
+        <View pointerEvents="none" style={styles.pillHighlight} />
+
+        <View style={styles.pillRow}>
+          {TABS.map((tab) => (
+            <NavItem
+              key={tab.key}
+              tab={tab}
+              active={tab.key === active}
+              onPress={() => onChange(tab.key)}
+            />
+          ))}
+        </View>
       </View>
+
       <Text style={styles.caption} numberOfLines={1}>
         {TABS.find((t) => t.key === active)?.label}
       </Text>
@@ -138,20 +165,45 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ITEM_GAP,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
-    backgroundColor: colors.navBar,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.navBorder,
     shadowColor: '#000',
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 14,
+  },
+  pillBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  pillVeil: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.navBar,
+  },
+  pillHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: alpha.p16,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ITEM_GAP,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   itemPressable: {
     width: ITEM_SIZE,
@@ -167,15 +219,14 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    width: ITEM_SIZE + 26,
-    height: ITEM_SIZE + 26,
+    width: ITEM_SIZE + 22,
+    height: ITEM_SIZE + 22,
     borderRadius: radius.pill,
     backgroundColor: colors.accentGlow,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.9,
-    shadowRadius: 20,
+    shadowColor: colors.text,
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
   },
   activeBg: {
     position: 'absolute',
@@ -184,17 +235,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.navActiveBg,
     borderWidth: 1,
-    borderColor: 'rgba(43, 168, 74, 0.45)',
-  },
-  glyph: {
-    fontSize: 20,
-    lineHeight: 26,
+    borderColor: colors.borderStrong,
   },
   caption: {
     marginTop: spacing.sm,
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    color: colors.textMuted,
+    fontFamily: family.bodySemi,
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
 });

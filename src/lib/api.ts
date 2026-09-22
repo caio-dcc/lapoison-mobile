@@ -1,6 +1,10 @@
 import { supabase } from './supabase';
 import type {
   ChosenOption,
+  Customer,
+  CustomerDetail,
+  CustomerInput,
+  CustomerRankings,
   DailySummary,
   DashboardOverview,
   DayDetail,
@@ -32,10 +36,23 @@ function writeCache(key: string, data: unknown) {
   cache.set(key, { at: Date.now(), data });
 }
 
-/** Invalida tudo que depende de vendas (após registrar venda). */
+/**
+ * Invalida tudo que depende de vendas (após registrar venda).
+ * Só 'products' e a lista de clientes sobrevivem: catálogo e cadastro
+ * não mudam ao vender. Os RANKINGS mudam, então caem aqui.
+ */
 export function invalidateSalesCache() {
   for (const key of cache.keys()) {
-    if (key !== 'products') cache.delete(key);
+    if (key !== 'products' && key !== 'customers') cache.delete(key);
+  }
+}
+
+/** Invalida o cadastro de clientes e os rankings derivados dele. */
+export function invalidateCustomers() {
+  cache.delete('customers');
+  cache.delete('rankings');
+  for (const key of cache.keys()) {
+    if (key.startsWith('customer:')) cache.delete(key);
   }
 }
 
@@ -131,15 +148,7 @@ export async function fetchProducts(force = false): Promise<Product[]> {
   return products;
 }
 
-export function groupByCategory(products: Product[]) {
-  const groups: Record<ProductCategory, Product[]> = {
-    comida: [],
-    bebida: [],
-    extra: [],
-  };
-  for (const p of products) groups[p.category]?.push(p);
-  return groups;
-}
+export { groupByCategory } from './metrics';
 
 // ---------------------------------------------------------------------
 // Dashboard
@@ -203,34 +212,15 @@ export async function fetchDayDetail(
 }
 
 // ---------------------------------------------------------------------
-// Registro de venda
-// ---------------------------------------------------------------------
+export { itemMeatGrams, itemUnitPrice } from './metrics';
+
 export interface NewSaleInput {
   customerName: string;
+  /** Cliente cadastrado. Quando presente, o nome vem do cadastro. */
+  customerId?: string | null;
   items: SaleItem[];
   paymentMethod: PaymentMethod | null;
   note?: string;
-}
-
-/** Preço unitário final = base + acréscimos das opções. */
-export function itemUnitPrice(item: {
-  unit_price: number;
-  options: ChosenOption[];
-}): number {
-  return (
-    item.unit_price +
-    item.options.reduce((sum, o) => sum + (o.price_delta ?? 0), 0)
-  );
-}
-
-export function itemMeatGrams(item: {
-  meat_grams: number;
-  options: ChosenOption[];
-}): number {
-  return (
-    item.meat_grams +
-    item.options.reduce((sum, o) => sum + (o.meat_delta ?? 0), 0)
-  );
 }
 
 export async function createSale(input: NewSaleInput): Promise<string> {
@@ -256,6 +246,7 @@ export async function createSale(input: NewSaleInput): Promise<string> {
     p_payment_method: input.paymentMethod,
     p_note: input.note ?? null,
     p_sale_date: null,
+    p_customer_id: input.customerId ?? null,
   });
 
   if (error) throw error;
@@ -372,4 +363,145 @@ export async function deactivateProduct(id: string): Promise<void> {
     .eq('id', id);
   if (error) throw error;
   cache.delete('products');
+}
+
+// ---------------------------------------------------------------------
+// Clientes
+// ---------------------------------------------------------------------
+export const CUSTOMER_BUCKET = 'customer-photos';
+
+export async function fetchCustomers(force = false): Promise<Customer[]> {
+  if (!force) {
+    const cached = readCache<Customer[]>('customers');
+    if (cached) return cached;
+  }
+
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, name, phone, notes, birth_date, photo_path, active, created_at')
+    .eq('active', true)
+    .order('name');
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as Customer[];
+  writeCache('customers', rows);
+  return rows;
+}
+
+/** Rankings do dashboard: quem gastou mais + top por produto. */
+export async function fetchCustomerRankings(
+  force = false
+): Promise<CustomerRankings> {
+  if (!force) {
+    const cached = readCache<CustomerRankings>('rankings');
+    if (cached) return cached;
+  }
+
+  const { data, error } = await supabase.rpc('customer_rankings', {
+    p_limit: 10,
+  });
+  if (error) throw error;
+
+  const rankings = data as CustomerRankings;
+  writeCache('rankings', rankings);
+  return rankings;
+}
+
+/** Ficha do cliente: resumo + preferidos + últimas vendas, em 1 chamada. */
+export async function fetchCustomerDetail(
+  id: string,
+  force = false
+): Promise<CustomerDetail> {
+  const key = `customer:${id}`;
+  if (!force) {
+    const cached = readCache<CustomerDetail>(key);
+    if (cached) return cached;
+  }
+
+  const { data, error } = await supabase.rpc('customer_detail', {
+    target_customer: id,
+  });
+  if (error) throw error;
+
+  const detail = data as CustomerDetail;
+  writeCache(key, detail);
+  return detail;
+}
+
+export async function upsertCustomer(
+  input: CustomerInput & { id?: string }
+): Promise<string> {
+  const payload = {
+    name: input.name.trim(),
+    phone: input.phone?.trim() || null,
+    notes: input.notes?.trim() || null,
+    birth_date: input.birth_date || null,
+  };
+
+  if (input.id) {
+    const { error } = await supabase
+      .from('customers')
+      .update(payload)
+      .eq('id', input.id);
+    if (error) throw error;
+    invalidateCustomers();
+    return input.id;
+  }
+
+  const { data, error } = await supabase
+    .from('customers')
+    .insert(payload)
+    .select('id')
+    .single();
+  if (error) throw error;
+
+  invalidateCustomers();
+  return (data as { id: string }).id;
+}
+
+/** Desativa em vez de apagar: preserva o vínculo com as vendas. */
+export async function deactivateCustomer(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('customers')
+    .update({ active: false })
+    .eq('id', id);
+  if (error) throw error;
+  invalidateCustomers();
+}
+
+/** Envia a foto do cliente ao Storage e grava o caminho. */
+export async function setCustomerPhoto(
+  id: string,
+  fileUri: string
+): Promise<void> {
+  const ext = (fileUri.split('.').pop() ?? 'jpg').split('?')[0].toLowerCase();
+  const path = `${id}/${Date.now()}.${ext}`;
+
+  const response = await fetch(fileUri);
+  const arrayBuffer = await response.arrayBuffer();
+
+  const { error: upErr } = await supabase.storage
+    .from(CUSTOMER_BUCKET)
+    .upload(path, arrayBuffer, {
+      contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
+      upsert: false,
+    });
+  if (upErr) throw upErr;
+
+  const { error } = await supabase
+    .from('customers')
+    .update({ photo_path: path })
+    .eq('id', id);
+  if (error) throw error;
+
+  invalidateCustomers();
+}
+
+export function customerPhotoUrl(storagePath: string | null): string | null {
+  if (!storagePath) return null;
+  const { data } = supabase.storage
+    .from(CUSTOMER_BUCKET)
+    .getPublicUrl(storagePath);
+  return data.publicUrl;
 }

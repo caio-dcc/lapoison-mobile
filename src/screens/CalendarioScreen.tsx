@@ -27,7 +27,7 @@ import {
 } from '../lib/api';
 import type { DailySummary, DayDetail } from '../lib/types';
 import { PAYMENT_LABELS, formatMeat } from '../lib/types';
-import { brl, colors, font, radius, spacing } from '../theme';
+import { alpha, brl, colors, family, font, radius, spacing } from '../theme';
 import {
   Beef,
   Calendar,
@@ -340,7 +340,7 @@ function DayDetailSheet({
                           minute: '2-digit',
                         })}
                         {sale.payment_method
-                          ? ` • ${PAYMENT_LABELS[sale.payment_method]}`
+                          ? `  ·  ${PAYMENT_LABELS[sale.payment_method]}`
                           : ''}
                       </Text>
                       {sale.items?.length ? (
@@ -631,7 +631,7 @@ export default function CalendarioScreen() {
                         style={[
                           styles.dayBox,
                           hasSales && {
-                            backgroundColor: `rgba(43, 168, 74, ${intensity})`,
+                            backgroundColor: `rgba(252, 255, 252, ${intensity})`,
                           },
                           isToday && styles.dayBoxToday,
                         ]}
@@ -639,7 +639,7 @@ export default function CalendarioScreen() {
                         <Text
                           style={[
                             styles.dayNum,
-                            hasSales && { color: colors.text, fontWeight: '700' },
+                            hasSales && { color: colors.text, fontFamily: family.displayBold },
                             isToday && { color: colors.accent },
                           ]}
                         >
@@ -669,7 +669,7 @@ export default function CalendarioScreen() {
               key={o}
               style={[
                 styles.legendBox,
-                { backgroundColor: `rgba(43, 168, 74, ${o})` },
+                { backgroundColor: `rgba(252, 255, 252, ${o})` },
               ]}
             />
           ))}
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: font.h1,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     letterSpacing: -0.5,
   },
   subtitle: { color: colors.textMuted, fontSize: font.small, marginTop: 2 },
@@ -720,14 +720,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthInfo: { alignItems: 'center' },
-  monthName: { color: colors.text, fontSize: font.h3, fontWeight: '700' },
+  monthName: { color: colors.text, fontSize: font.h3, fontFamily: family.displayBold },
   monthYear: { color: colors.textMuted, fontSize: font.tiny },
   monthTotalBox: {
     marginTop: spacing.md,
     backgroundColor: colors.navActiveBg,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(43,168,74,0.3)',
+    borderColor: colors.borderStrong,
     padding: spacing.lg,
   },
   monthTotalLabel: {
@@ -735,12 +735,12 @@ const styles = StyleSheet.create({
     fontSize: font.tiny,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   monthTotalValue: {
     color: colors.text,
     fontSize: 26,
-    fontWeight: '800',
+    fontFamily: family.displayBold,
     marginTop: 4,
   },
   monthMeat: { color: colors.textMuted, fontSize: font.small },
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.textFaint,
     fontSize: font.tiny,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: `${100 / 7}%`, aspectRatio: 1, padding: 2 },
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
   dayValue: {
     color: colors.text,
     fontSize: 9,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
     marginTop: 1,
   },
   mediaDot: {
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
-  modalTitle: { color: colors.text, fontSize: font.h3, fontWeight: '700' },
+  modalTitle: { color: colors.text, fontSize: font.h3, fontFamily: family.displayBold },
   modalSubtitle: {
     color: colors.textMuted,
     fontSize: font.small,
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.navActiveBg,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(43,168,74,0.3)',
+    borderColor: colors.borderStrong,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
@@ -863,12 +863,12 @@ const styles = StyleSheet.create({
     fontSize: font.tiny,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   modalTotalValue: {
     color: colors.text,
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: family.displayBold,
     marginTop: 4,
   },
   modalInsumos: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm },
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.navActiveBg,
     borderColor: colors.accent,
   },
-  tabText: { color: colors.textMuted, fontSize: font.small, fontWeight: '600' },
+  tabText: { color: colors.textMuted, fontSize: font.small, fontFamily: family.bodySemi },
   saleCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
@@ -911,9 +911,9 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
-  saleTotal: { color: colors.accent, fontSize: font.body, fontWeight: '700' },
+  saleTotal: { color: colors.accent, fontSize: font.body, fontFamily: family.displayBold },
   saleMeta: { color: colors.textFaint, fontSize: font.tiny, marginTop: 2 },
   saleItems: {
     marginTop: spacing.sm,
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
   photoBtnText: {
     color: colors.textMuted,
     fontSize: font.small,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   noteInputRow: {
     flexDirection: 'row',

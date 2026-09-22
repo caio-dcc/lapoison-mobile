@@ -1,24 +1,40 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { fetchDashboard } from '../lib/api';
-import type { DashboardOverview } from '../lib/types';
+import {
+  customerPhotoUrl,
+  fetchCustomerRankings,
+  fetchDashboard,
+} from '../lib/api';
+import type {
+  CustomerRankings,
+  DashboardOverview,
+  TopByProduct,
+  TopSpender,
+} from '../lib/types';
 import { formatMeat } from '../lib/types';
-import { brl, brlCompact, colors, font, radius, spacing } from '../theme';
+import { alpha, brl, brlCompact, colors, family, font, radius, spacing } from '../theme';
 import {
   Beef,
   Croissant,
-  STROKE,
+  Crown,
+  Medal,
+  Receipt,
   TrendingDown,
   TrendingUp,
+  Users,
+  STROKE,
 } from '../components/icons';
 import {
+  Avatar,
   Card,
+  EmptyState,
   ErrorState,
   MiniBar,
   SectionTitle,
@@ -65,14 +81,20 @@ function TrendBars({ data }: { data: { sale_date: string; total: number }[] }) {
 
 export default function DashboardScreen() {
   const [data, setData] = useState<DashboardOverview | null>(null);
+  const [ranks, setRanks] = useState<CustomerRankings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async (force = false) => {
     try {
       setError(null);
-      const result = await fetchDashboard(force);
+      // Em paralelo: os rankings não atrasam o resto do dashboard.
+      const [result, rankResult] = await Promise.all([
+        fetchDashboard(force),
+        fetchCustomerRankings(force).catch(() => null),
+      ]);
       setData(result);
+      setRanks(rankResult);
     } catch (e: any) {
       setError(e?.message ?? 'Erro desconhecido');
     }
@@ -148,13 +170,13 @@ export default function DashboardScreen() {
           <Text style={styles.heroMetaText}>
             {data.month_count} {data.month_count === 1 ? 'venda' : 'vendas'}
           </Text>
-          <Text style={styles.heroDot}>•</Text>
+          <View style={styles.heroDot} />
           <Text style={styles.heroMetaText}>
             ticket {brl(data.avg_ticket_month)}
           </Text>
           {delta !== null ? (
             <>
-              <Text style={styles.heroDot}>•</Text>
+              <View style={styles.heroDot} />
               <View style={styles.heroDelta}>
                 {delta >= 0 ? (
                   <TrendingUp size={13} strokeWidth={2.1} color={colors.success} />
@@ -243,19 +265,19 @@ export default function DashboardScreen() {
             label="Comida"
             value={data.month_food}
             max={maxMix}
-            color={colors.accent}
+            color={alpha.p80}
           />
           <MiniBar
             label="Bebida"
             value={data.month_drink}
             max={maxMix}
-            color={colors.info}
+            color={alpha.p40}
           />
           <MiniBar
             label="Extra"
             value={data.month_extra}
             max={maxMix}
-            color={colors.success}
+            color={alpha.p24}
           />
         </Card>
       </View>
@@ -336,8 +358,149 @@ export default function DashboardScreen() {
         </View>
       ) : null}
 
+      {/* Clientes: quem gastou mais e quem mais consumiu cada item */}
+      <CustomerRanks ranks={ranks} />
+
       <View style={{ height: 120 }} />
     </ScrollView>
+  );
+}
+
+/**
+ * Duas abas: ranking por valor gasto e, por item, o cliente que mais
+ * consumiu. Tudo pré-agregado no banco — aqui é só render.
+ */
+function CustomerRanks({ ranks }: { ranks: CustomerRankings | null }) {
+  const [view, setView] = useState<'gasto' | 'item'>('gasto');
+
+  if (!ranks) return null;
+
+  const spenders = ranks.top_spenders ?? [];
+  const byProduct = ranks.top_by_product ?? [];
+
+  if (spenders.length === 0 && byProduct.length === 0) {
+    return (
+      <View style={styles.block}>
+        <SectionTitle>Clientes</SectionTitle>
+        <Card>
+          <EmptyState
+            Icon={Users}
+            title="Nenhuma venda com cliente ainda"
+            subtitle="Cadastre clientes e associe-os às vendas para ver os rankings aqui."
+          />
+        </Card>
+      </View>
+    );
+  }
+
+  const maxSpent = spenders.length > 0 ? spenders[0].total_spent : 0;
+
+  return (
+    <View style={styles.block}>
+      <SectionTitle>Clientes</SectionTitle>
+
+      <View style={styles.rankTabs}>
+        <Pressable
+          onPress={() => setView('gasto')}
+          style={[styles.rankTab, view === 'gasto' && styles.rankTabOn]}
+        >
+          <Crown
+            size={14}
+            strokeWidth={STROKE}
+            color={view === 'gasto' ? colors.text : colors.textMuted}
+          />
+          <Text style={[styles.rankTabText, view === 'gasto' && styles.rankTabTextOn]}>
+            Quem gastou mais
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setView('item')}
+          style={[styles.rankTab, view === 'item' && styles.rankTabOn]}
+        >
+          <Medal
+            size={14}
+            strokeWidth={STROKE}
+            color={view === 'item' ? colors.text : colors.textMuted}
+          />
+          <Text style={[styles.rankTabText, view === 'item' && styles.rankTabTextOn]}>
+            Por item
+          </Text>
+        </Pressable>
+      </View>
+
+      <Card>
+        {view === 'gasto' ? (
+          spenders.length === 0 ? (
+            <Text style={styles.rankEmpty}>Nenhuma venda associada a cliente.</Text>
+          ) : (
+            spenders.map((c, idx) => (
+              <View
+                key={c.id}
+                style={[
+                  styles.rankRow,
+                  idx === spenders.length - 1 && { borderBottomWidth: 0 },
+                ]}
+              >
+                <Text style={styles.rankPos}>{idx + 1}</Text>
+                <Avatar name={c.name} uri={customerPhotoUrl(c.photo_path)} size={34} />
+                <View style={styles.rankBody}>
+                  <Text style={styles.rankName} numberOfLines={1}>
+                    {c.name}
+                  </Text>
+                  <View style={styles.rankTrack}>
+                    <View
+                      style={[
+                        styles.rankFill,
+                        {
+                          width: `${
+                            maxSpent > 0 ? (c.total_spent / maxSpent) * 100 : 0
+                          }%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.rankMeta}>
+                    {c.sales_count} venda{c.sales_count === 1 ? '' : 's'} · ticket{' '}
+                    {brl(c.avg_ticket)}
+                  </Text>
+                </View>
+                <Text style={styles.rankValue}>{brl(c.total_spent)}</Text>
+              </View>
+            ))
+          )
+        ) : byProduct.length === 0 ? (
+          <Text style={styles.rankEmpty}>Nenhum item vendido a cliente cadastrado.</Text>
+        ) : (
+          byProduct.map((r, idx) => (
+            <View
+              key={`${r.product_name}-${r.customer_id}`}
+              style={[
+                styles.rankRow,
+                idx === byProduct.length - 1 && { borderBottomWidth: 0 },
+              ]}
+            >
+              <Avatar
+                name={r.customer_name}
+                uri={customerPhotoUrl(r.photo_path)}
+                size={34}
+              />
+              <View style={styles.rankBody}>
+                <Text style={styles.rankName} numberOfLines={1}>
+                  {r.product_name}
+                </Text>
+                <Text style={styles.rankMeta} numberOfLines={1}>
+                  {r.customer_name}
+                </Text>
+              </View>
+              <View style={styles.rankQtyBox}>
+                <Text style={styles.rankValue}>{r.qty}x</Text>
+                <Text style={styles.rankMetaRight}>{brl(r.total)}</Text>
+              </View>
+            </View>
+          ))
+        )}
+      </Card>
+    </View>
   );
 }
 
@@ -355,6 +518,90 @@ function Header() {
 }
 
 const styles = StyleSheet.create({
+  rankTabs: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  rankTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  rankTabOn: {
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.borderStrong,
+  },
+  rankTabText: {
+    fontFamily: family.bodySemi,
+    fontSize: font.tiny,
+    color: colors.textMuted,
+  },
+  rankTabTextOn: { color: colors.text },
+  rankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: alpha.p06,
+  },
+  rankPos: {
+    fontFamily: family.displayBold,
+    fontSize: font.small,
+    color: colors.textFaint,
+    width: 14,
+  },
+  rankBody: { flex: 1 },
+  rankName: {
+    fontFamily: family.bodySemi,
+    fontSize: font.small,
+    color: colors.text,
+  },
+  rankTrack: {
+    height: 3,
+    borderRadius: radius.pill,
+    backgroundColor: alpha.p08,
+    overflow: 'hidden',
+    marginTop: spacing.xs,
+  },
+  rankFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+    backgroundColor: alpha.p60,
+  },
+  rankMeta: {
+    fontFamily: family.body,
+    fontSize: font.tiny,
+    color: colors.textFaint,
+    marginTop: 2,
+  },
+  rankMetaRight: {
+    fontFamily: family.body,
+    fontSize: font.tiny,
+    color: colors.textFaint,
+    textAlign: 'right',
+  },
+  rankValue: {
+    fontFamily: family.displayBold,
+    fontSize: font.small,
+    color: colors.text,
+    textAlign: 'right',
+  },
+  rankQtyBox: { alignItems: 'flex-end' },
+  rankEmpty: {
+    fontFamily: family.body,
+    fontSize: font.small,
+    color: colors.textFaint,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
   content: {
     padding: spacing.lg,
     paddingTop: spacing.sm,
@@ -365,7 +612,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: font.h1,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     letterSpacing: -0.5,
   },
   subtitle: {
@@ -374,24 +621,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   heroCard: {
-    backgroundColor: colors.navActiveBg,
+    backgroundColor: colors.surfaceStrong,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(43,168,74,0.3)',
+    borderColor: colors.borderStrong,
     padding: spacing.xl,
     marginBottom: spacing.md,
   },
   heroLabel: {
-    color: colors.accentSoft,
+    color: colors.textMuted,
     fontSize: font.tiny,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   heroValue: {
     color: colors.text,
     fontSize: 36,
-    fontWeight: '800',
+    fontFamily: family.displayBold,
     marginTop: spacing.sm,
     letterSpacing: -1,
   },
@@ -408,6 +655,10 @@ const styles = StyleSheet.create({
   },
   heroDelta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   heroDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.textFaint,
     color: colors.textFaint,
     fontSize: font.small,
     marginHorizontal: 2,
@@ -452,7 +703,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.tiny,
     marginTop: spacing.sm,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   topRow: {
     flexDirection: 'row',
@@ -465,13 +716,13 @@ const styles = StyleSheet.create({
   topRank: {
     color: colors.accent,
     fontSize: font.small,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     width: 18,
   },
   topName: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   topQty: {
     color: colors.textFaint,
@@ -481,7 +732,7 @@ const styles = StyleSheet.create({
   topTotal: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
   },
   insumoHead: {
     flexDirection: 'row',
@@ -491,7 +742,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.textFaint,
     fontSize: font.tiny,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     textAlign: 'right',
@@ -512,7 +763,7 @@ const styles = StyleSheet.create({
   insumoName: {
     color: colors.text,
     fontSize: font.small,
-    fontWeight: '600',
+    fontFamily: family.bodySemi,
   },
   insumoCell: {
     flex: 1,
@@ -522,7 +773,7 @@ const styles = StyleSheet.create({
   },
   insumoCellStrong: {
     color: colors.accent,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
   },
   prefGroup: {
     marginBottom: spacing.md,
@@ -533,7 +784,7 @@ const styles = StyleSheet.create({
   prefGroupName: {
     color: colors.textMuted,
     fontSize: font.tiny,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: spacing.sm,

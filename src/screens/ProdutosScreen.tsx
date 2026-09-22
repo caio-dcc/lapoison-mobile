@@ -20,7 +20,7 @@ import {
 } from '../lib/api';
 import type { Product, ProductCategory } from '../lib/types';
 import { formatMeat } from '../lib/types';
-import { brl, colors, font, radius, spacing } from '../theme';
+import { alpha, brl, colors, family, font, radius, spacing } from '../theme';
 import {
   Beef,
   Beer,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: font.h1,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     letterSpacing: -0.5,
   },
   subtitle: { color: colors.textMuted, fontSize: font.small, marginTop: 2 },
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   catIcon: { marginBottom: 4 },
-  catLabel: { color: colors.textMuted, fontSize: font.small, fontWeight: '600' },
+  catLabel: { color: colors.textMuted, fontSize: font.small, fontFamily: family.bodySemi },
   catCount: { color: colors.textFaint, fontSize: font.tiny, marginTop: 2 },
   productRow: {
     flexDirection: 'row',
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     marginBottom: spacing.sm,
   },
-  productName: { color: colors.text, fontSize: font.body, fontWeight: '600' },
+  productName: { color: colors.text, fontSize: font.body, fontFamily: family.bodySemi },
   productMeta: { color: colors.textMuted, fontSize: font.small },
   productMetaRow: {
     flexDirection: 'row',
@@ -530,13 +530,13 @@ const styles = StyleSheet.create({
   sheetTitle: {
     color: colors.text,
     fontSize: font.h3,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     marginBottom: spacing.lg,
   },
   fieldLabel: {
     color: colors.textMuted,
     fontSize: font.tiny,
-    fontWeight: '700',
+    fontFamily: family.displayBold,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: spacing.sm,
