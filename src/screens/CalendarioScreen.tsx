@@ -427,7 +427,7 @@ function DayDetailSheet({
                         (busy || !noteText.trim()) && { opacity: 0.4 },
                       ]}
                     >
-                      <Send size={17} strokeWidth={2.1} color="#fff" />
+                      <Send size={17} strokeWidth={2.1} color={colors.bg} />
                     </Pressable>
                   </View>
 

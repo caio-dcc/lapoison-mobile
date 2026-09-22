@@ -415,7 +415,7 @@ export default function ProdutosScreen() {
         }}
         style={styles.fab}
       >
-        <Plus size={26} strokeWidth={2.2} color="#fff" />
+        <Plus size={26} strokeWidth={2.2} color={colors.bg} />
       </Pressable>
 
       <ProductForm

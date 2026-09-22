@@ -240,11 +240,11 @@ function ProductRow({
       {selected ? (
         <View style={styles.stepper}>
           <Pressable onPress={onRemove} style={styles.stepBtn} hitSlop={6}>
-            <Minus size={16} strokeWidth={2.4} color="#fff" />
+            <Minus size={16} strokeWidth={2.4} color={colors.bg} />
           </Pressable>
           <Text style={styles.stepQty}>{quantity}</Text>
           <Pressable onPress={onPress} style={styles.stepBtn} hitSlop={6}>
-            <Plus size={16} strokeWidth={2.4} color="#fff" />
+            <Plus size={16} strokeWidth={2.4} color={colors.bg} />
           </Pressable>
         </View>
       ) : (
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  catBadgeText: { color: colors.text, fontSize: 10, fontFamily: family.displayBold },
+  catBadgeText: { color: colors.bg, fontSize: 10, fontFamily: family.displayBold },
   productRow: {
     flexDirection: 'row',
     alignItems: 'center',
