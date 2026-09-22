@@ -73,12 +73,18 @@ export interface DashboardOverview {
   today_meat: number;
   today_buns: number;
   today_profit: number;
+  /** Hora do dia (0-23, fuso local) com maior faturamento. Null sem vendas. */
+  today_peak_hour: number | null;
+  today_peak_total: number;
 
   week_total: number;
   week_count: number;
   week_meat: number;
   week_buns: number;
   week_profit: number;
+  /** Dia da semana com o pico mais forte, e a hora desse pico. */
+  week_peak_hour: number | null;
+  week_peak_total: number;
 
   month_total: number;
   month_count: number;
@@ -216,6 +222,30 @@ export interface DayDetail {
   sales: DaySale[];
   notes: DayNote[];
   photos: DayPhoto[];
+}
+
+/** Detalhe do horário de pico: itens vendidos e clientes presentes na hora. */
+export interface PeakHourDetail {
+  items: {
+    name: string;
+    category: ProductCategory;
+    qty: number;
+    total: number;
+  }[];
+  customers: {
+    id: string;
+    sold_at: string;
+    customer_id: string | null;
+    customer_name: string;
+    photo_path: string | null;
+    total: number;
+  }[];
+}
+
+/** dd/mm às hh:mm — hora do pico em português. */
+export function formatHour(hour: number | null): string {
+  if (hour === null || hour === undefined) return '—';
+  return `${String(hour).padStart(2, '0')}h`;
 }
 
 export { formatMeat } from './metrics';

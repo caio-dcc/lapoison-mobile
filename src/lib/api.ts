@@ -11,6 +11,7 @@ import type {
   DayDetail,
   OptionGroup,
   PaymentMethod,
+  PeakHourDetail,
   Product,
   ProductCategory,
   SaleItem,
@@ -209,6 +210,29 @@ export async function fetchDayDetail(
   if (error) throw error;
 
   const detail = data as DayDetail;
+  writeCache(key, detail);
+  return detail;
+}
+
+/** Itens vendidos e clientes presentes no horário de pico de um dia. */
+export async function fetchPeakHourDetail(
+  date: string,
+  hour: number,
+  force = false
+): Promise<PeakHourDetail> {
+  const key = `peak:${date}:${hour}`;
+  if (!force) {
+    const cached = readCache<PeakHourDetail>(key);
+    if (cached) return cached;
+  }
+
+  const { data, error } = await supabase.rpc('peak_hour_detail', {
+    target_date: date,
+    target_hour: hour,
+  });
+  if (error) throw error;
+
+  const detail = data as PeakHourDetail;
   writeCache(key, detail);
   return detail;
 }

@@ -11,17 +11,21 @@ import {
   customerPhotoUrl,
   fetchCustomerRankings,
   fetchDashboard,
+  fetchPeakHourDetail,
+  todayISO,
 } from '../lib/api';
 import type {
   CustomerRankings,
   DashboardOverview,
+  PeakHourDetail,
   TopByProduct,
   TopSpender,
 } from '../lib/types';
-import { formatMeat } from '../lib/types';
+import { formatHour, formatMeat } from '../lib/types';
 import { alpha, brl, brlCompact, colors, family, font, radius, spacing } from '../theme';
 import {
   Beef,
+  Clock,
   Croissant,
   Crown,
   Medal,
@@ -374,11 +378,146 @@ export default function DashboardScreen() {
         </View>
       ) : null}
 
+      {/* Horário de pico do dia: itens vendidos e clientes presentes */}
+      <PeakHourCard hour={data.today_peak_hour} total={data.today_peak_total} />
+
       {/* Clientes: quem gastou mais e quem mais consumiu cada item */}
       <CustomerRanks ranks={ranks} />
 
       <View style={{ height: 120 }} />
     </ScrollView>
+  );
+}
+
+/**
+ * Horário de pico do dia (hora com maior faturamento, pré-calculada no
+ * banco). Ao abrir, busca sob demanda os itens vendidos e os clientes
+ * presentes naquela hora — só 1 chamada extra, e só quando o card
+ * existe (não há pico sem vendas no dia).
+ */
+function PeakHourCard({
+  hour,
+  total,
+}: {
+  hour: number | null;
+  total: number;
+}) {
+  const [view, setView] = useState<'itens' | 'clientes'>('itens');
+  const [detail, setDetail] = useState<PeakHourDetail | null>(null);
+
+  useEffect(() => {
+    if (hour === null) return;
+    let alive = true;
+    setDetail(null);
+    void (async () => {
+      try {
+        const d = await fetchPeakHourDetail(todayISO(), hour);
+        if (alive) setDetail(d);
+      } catch {
+        if (alive) setDetail({ items: [], customers: [] });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [hour]);
+
+  if (hour === null) return null;
+
+  const items = detail?.items ?? [];
+  const customers = detail?.customers ?? [];
+
+  return (
+    <View style={styles.block}>
+      <SectionTitle>Horário de pico hoje</SectionTitle>
+
+      <Card style={styles.peakHead}>
+        <View style={styles.peakIconBadge}>
+          <Clock size={18} strokeWidth={STROKE} color={colors.text} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.peakHourText}>{formatHour(hour)}</Text>
+          <Text style={styles.rankMeta}>faturou {brl(total)} nessa hora</Text>
+        </View>
+      </Card>
+
+      <View style={styles.rankTabs}>
+        <Pressable
+          onPress={() => setView('itens')}
+          style={[styles.rankTab, view === 'itens' && styles.rankTabOn]}
+        >
+          <Receipt
+            size={14}
+            strokeWidth={STROKE}
+            color={view === 'itens' ? colors.text : colors.textMuted}
+          />
+          <Text style={[styles.rankTabText, view === 'itens' && styles.rankTabTextOn]}>
+            Itens vendidos
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setView('clientes')}
+          style={[styles.rankTab, view === 'clientes' && styles.rankTabOn]}
+        >
+          <Users
+            size={14}
+            strokeWidth={STROKE}
+            color={view === 'clientes' ? colors.text : colors.textMuted}
+          />
+          <Text style={[styles.rankTabText, view === 'clientes' && styles.rankTabTextOn]}>
+            Clientes presentes
+          </Text>
+        </Pressable>
+      </View>
+
+      <Card>
+        {detail === null ? (
+          <Skeleton height={54} />
+        ) : view === 'itens' ? (
+          items.length === 0 ? (
+            <Text style={styles.rankEmpty}>Nenhum item nessa hora.</Text>
+          ) : (
+            items.map((it, idx) => (
+              <View
+                key={`${it.name}-${idx}`}
+                style={[
+                  styles.rankRow,
+                  idx === items.length - 1 && { borderBottomWidth: 0 },
+                ]}
+              >
+                <Text style={styles.rankPos}>{it.qty}x</Text>
+                <View style={styles.rankBody}>
+                  <Text style={styles.rankName} numberOfLines={1}>
+                    {it.name}
+                  </Text>
+                </View>
+                <Text style={styles.rankValue}>{brl(it.total)}</Text>
+              </View>
+            ))
+          )
+        ) : customers.length === 0 ? (
+          <Text style={styles.rankEmpty}>Nenhuma venda nessa hora.</Text>
+        ) : (
+          customers.map((c, idx) => (
+            <View
+              key={c.id}
+              style={[
+                styles.rankRow,
+                idx === customers.length - 1 && { borderBottomWidth: 0 },
+              ]}
+            >
+              <Avatar name={c.customer_name} uri={customerPhotoUrl(c.photo_path)} size={34} />
+              <View style={styles.rankBody}>
+                <Text style={styles.rankName} numberOfLines={1}>
+                  {c.customer_name}
+                </Text>
+              </View>
+              <Text style={styles.rankValue}>{brl(c.total)}</Text>
+            </View>
+          ))
+        )}
+      </Card>
+    </View>
   );
 }
 
@@ -534,6 +673,27 @@ function Header() {
 }
 
 const styles = StyleSheet.create({
+  peakHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  peakIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: alpha.p08,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  peakHourText: {
+    fontFamily: family.displayBold,
+    fontSize: font.h2,
+    color: colors.text,
+  },
   rankTabs: {
     flexDirection: 'row',
     gap: spacing.sm,
