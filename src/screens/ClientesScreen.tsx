@@ -83,6 +83,12 @@ export default function ClientesScreen() {
       setError(null);
       const data = await fetchCustomers(force);
       setRows(data);
+      // O modal aberto (detailOf) é uma cópia antiga do cliente — sem
+      // isso, uma foto ou dado novo não aparece até fechar e reabrir.
+      setDetailOf((prev) => {
+        if (!prev) return prev;
+        return data.find((c) => c.id === prev.id) ?? prev;
+      });
     } catch (e: any) {
       setError(e?.message ?? 'Erro ao carregar clientes');
     }
@@ -555,7 +561,7 @@ function CustomerSheet({
         if (res.canceled || !res.assets?.[0]?.uri) return;
 
         setBusy(true);
-        await setCustomerPhoto(customer.id, res.assets[0].uri);
+        await setCustomerPhoto(customer.id, res.assets[0].uri, customer.name);
         onChanged();
       } catch (e: any) {
         Alert.alert('Erro', e?.message ?? 'Não foi possível enviar a foto');

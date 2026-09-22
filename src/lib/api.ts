@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { currentOperator } from './auth';
 import type {
   ChosenOption,
   Customer,
@@ -241,6 +242,8 @@ export async function createSale(input: NewSaleInput): Promise<string> {
     })),
   }));
 
+  const operator = await currentOperator();
+
   const { data, error } = await supabase.rpc('create_sale', {
     p_customer_name: input.customerName,
     p_items: payload,
@@ -248,12 +251,44 @@ export async function createSale(input: NewSaleInput): Promise<string> {
     p_note: input.note ?? null,
     p_sale_date: null,
     p_customer_id: input.customerId ?? null,
+    p_operator: operator,
   });
 
   if (error) throw error;
 
   invalidateSalesCache();
   return data as string;
+}
+
+// ---------------------------------------------------------------------
+// Auditoria
+// ---------------------------------------------------------------------
+export interface AuditEntry {
+  id: number;
+  at: string;
+  operator: string | null;
+  table_name: string;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  row_id: string | null;
+  summary: string | null;
+}
+
+export async function fetchAuditFeed(
+  limit = 50,
+  offset = 0
+): Promise<AuditEntry[]> {
+  const { data, error } = await supabase.rpc('audit_feed', {
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw error;
+  return (data ?? []) as AuditEntry[];
+}
+
+export async function fetchAuditCount(): Promise<number> {
+  const { data, error } = await supabase.rpc('audit_count');
+  if (error) throw error;
+  return (data as number) ?? 0;
 }
 
 export async function deleteSale(id: string, date: string): Promise<void> {
@@ -474,13 +509,30 @@ export async function deactivateCustomer(id: string): Promise<void> {
   invalidateCustomers();
 }
 
-/** Envia a foto do cliente ao Storage e grava o caminho. */
+/** Normaliza o nome do cliente para um trecho seguro de caminho de arquivo. */
+function slugify(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // remove acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'cliente';
+}
+
+/**
+ * Envia a foto do cliente ao Storage e grava o caminho.
+ * Nome do arquivo identifica a origem (laviela) e o cliente, para ficar
+ * claro ao navegar direto pelo bucket no painel do Supabase.
+ */
 export async function setCustomerPhoto(
   id: string,
-  fileUri: string
+  fileUri: string,
+  customerName: string
 ): Promise<void> {
   const ext = (fileUri.split('.').pop() ?? 'jpg').split('?')[0].toLowerCase();
-  const path = `${id}/${Date.now()}.${ext}`;
+  const safeExt = ['jpg', 'jpeg', 'png'].includes(ext) ? ext : 'jpg';
+  const path = `${id}/laviela-${slugify(customerName)}-${Date.now()}.${safeExt}`;
 
   const response = await fetch(fileUri);
   const arrayBuffer = await response.arrayBuffer();
@@ -488,7 +540,7 @@ export async function setCustomerPhoto(
   const { error: upErr } = await supabase.storage
     .from(CUSTOMER_BUCKET)
     .upload(path, arrayBuffer, {
-      contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
+      contentType: safeExt === 'png' ? 'image/png' : 'image/jpeg',
       upsert: false,
     });
   if (upErr) throw upErr;

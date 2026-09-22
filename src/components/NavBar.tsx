@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -14,6 +16,7 @@ import {
   ClipboardList,
   Hamburger,
   LayoutDashboard,
+  ScrollText,
   STROKE,
   Users,
 } from './icons';
@@ -24,7 +27,8 @@ export type TabKey =
   | 'registro'
   | 'clientes'
   | 'calendario'
-  | 'produtos';
+  | 'produtos'
+  | 'auditoria';
 
 interface TabDef {
   key: TabKey;
@@ -39,11 +43,30 @@ export const TABS: TabDef[] = [
   { key: 'clientes', Icon: Users, label: 'Clientes' },
   { key: 'calendario', Icon: CalendarDays, label: 'Calendário' },
   { key: 'produtos', Icon: ClipboardList, label: 'Produtos' },
+  { key: 'auditoria', Icon: ScrollText, label: 'Auditoria' },
 ];
 
 const ITEM_SIZE = 44;
 /** Respiro entre ícones — pedido explicitamente maior. */
 const ITEM_GAP = spacing.md;
+
+/** Anel que se expande e desvanece — a "onda" irradiando do ícone. */
+function Ripple({ trigger, delay }: { trigger: number; delay: number }) {
+  const t = useSharedValue(0);
+
+  useEffect(() => {
+    if (trigger === 0) return;
+    t.value = 0;
+    t.value = withDelay(delay, withTiming(1, { duration: 620, easing: Easing.out(Easing.quad) }));
+  }, [trigger, delay, t]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: trigger === 0 ? 0 : (1 - t.value) * 0.5,
+    transform: [{ scale: 0.5 + t.value * 1.3 }],
+  }));
+
+  return <Animated.View pointerEvents="none" style={[styles.ripple, style]} />;
+}
 
 function NavItem({
   tab,
@@ -56,9 +79,12 @@ function NavItem({
 }) {
   const progress = useSharedValue(active ? 1 : 0);
   const scale = useSharedValue(1);
+  // Incrementa a cada ativação: dispara as 3 ondas em cascata.
+  const [rippleKey, setRippleKey] = useState(active ? 1 : 0);
 
   useEffect(() => {
     progress.value = withTiming(active ? 1 : 0, { duration: 240 });
+    if (active) setRippleKey((k) => k + 1);
   }, [active, progress]);
 
   const bgStyle = useAnimatedStyle(() => ({
@@ -91,6 +117,10 @@ function NavItem({
       style={styles.itemPressable}
     >
       <Animated.View style={[styles.itemInner, contentStyle]}>
+        {/* Ondas irradiando do ícone ao ativar a aba. */}
+        <Ripple trigger={rippleKey} delay={0} />
+        <Ripple trigger={rippleKey} delay={110} />
+        <Ripple trigger={rippleKey} delay={220} />
         {/* Halo difuso do item ativo — porcelain, sem cor. */}
         <Animated.View pointerEvents="none" style={[styles.glow, bgStyle]} />
         {/* Cápsula de fundo translúcida */}
@@ -227,6 +257,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
+  },
+  ripple: {
+    position: 'absolute',
+    width: ITEM_SIZE,
+    height: ITEM_SIZE,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.accentSoft,
   },
   activeBg: {
     position: 'absolute',

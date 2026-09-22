@@ -32,6 +32,7 @@ import RegistroScreen from './src/screens/RegistroScreen';
 import ClientesScreen from './src/screens/ClientesScreen';
 import CalendarioScreen from './src/screens/CalendarioScreen';
 import ProdutosScreen from './src/screens/ProdutosScreen';
+import AuditoriaScreen from './src/screens/AuditoriaScreen';
 import LockScreen from './src/screens/LockScreen';
 import { colors, spacing } from './src/theme';
 import { LogOut, STROKE } from './src/components/icons';
@@ -233,8 +234,10 @@ export default function App() {
                         <ClientesScreen key={clientesKey.current} />
                       ) : key === 'calendario' ? (
                         <CalendarioScreen key={calendarKey.current} />
-                      ) : (
+                      ) : key === 'produtos' ? (
                         <ProdutosScreen />
+                      ) : (
+                        <AuditoriaScreen />
                       )
                     ) : null}
                   </View>

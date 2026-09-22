@@ -619,6 +619,9 @@ export default function CalendarioScreen() {
                   const intensity = hasSales
                     ? 0.25 + (Number(summary!.total) / maxDay) * 0.75
                     : 0;
+                  // Acima desse ponto o fundo (porcelain translúcido) fica
+                  // claro demais para texto branco — o número vira escuro.
+                  const onLightBg = hasSales && intensity >= 0.55;
                   const isToday = iso === today;
 
                   return (
@@ -640,19 +643,33 @@ export default function CalendarioScreen() {
                           style={[
                             styles.dayNum,
                             hasSales && { color: colors.text, fontFamily: family.displayBold },
-                            isToday && { color: colors.accent },
+                            onLightBg && { color: colors.bg },
+                            isToday && !onLightBg && { color: colors.accent },
                           ]}
                         >
                           {day}
                         </Text>
                         {hasSales ? (
-                          <Text style={styles.dayValue} numberOfLines={1}>
+                          <Text
+                            style={[
+                              styles.dayValue,
+                              onLightBg && { color: colors.bg, opacity: 0.7 },
+                            ]}
+                            numberOfLines={1}
+                          >
                             {Number(summary!.total) >= 1000
                               ? `${(Number(summary!.total) / 1000).toFixed(1)}k`
                               : Math.round(Number(summary!.total))}
                           </Text>
                         ) : null}
-                        {hasMedia ? <View style={styles.mediaDot} /> : null}
+                        {hasMedia ? (
+                          <View
+                            style={[
+                              styles.mediaDot,
+                              onLightBg && { backgroundColor: colors.bg },
+                            ]}
+                          />
+                        ) : null}
                       </View>
                     </Pressable>
                   );

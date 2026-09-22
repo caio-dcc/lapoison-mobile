@@ -1,6 +1,9 @@
 /**
- * Tela de senha. Usa o teclado nativo do sistema (TextInput padrão) —
- * mais previsível para o usuário do que um teclado componentizado.
+ * Tela de senha + seleção de operador. Usa o teclado nativo do sistema
+ * (TextInput padrão) — mais previsível do que um teclado componentizado.
+ *
+ * Após a senha correta, pede para escolher quem está operando (Caio ou
+ * Matheus) — essa escolha identifica o autor de cada venda na auditoria.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -14,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -21,12 +25,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { alpha, colors, family, font, radius, spacing } from '../theme';
-import { Check, Lock, STROKE } from '../components/icons';
+import { Check, Lock, STROKE, User } from '../components/icons';
 import Glass from '../components/Glass';
-import { checkPassword } from '../lib/auth';
-import { tapMedium } from '../lib/celebrate';
+import { checkPassword, OPERATORS, setOperator, type Operator } from '../lib/auth';
+import { tapLight, tapMedium } from '../lib/celebrate';
 
 export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+  const [step, setStep] = useState<'password' | 'operator'>('password');
   const [value, setValue] = useState('');
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -56,7 +61,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     if (ok) {
       tapMedium();
       Keyboard.dismiss();
-      onUnlock();
+      setStep('operator');
       return;
     }
 
@@ -70,7 +75,49 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       withTiming(7, { duration: 55 }),
       withSpring(0, { damping: 12, stiffness: 260 })
     );
-  }, [checking, value, onUnlock, shake]);
+  }, [checking, value, shake]);
+
+  const pickOperator = useCallback(
+    async (name: Operator) => {
+      tapLight();
+      await setOperator(name);
+      onUnlock();
+    },
+    [onUnlock]
+  );
+
+  if (step === 'operator') {
+    return (
+      <View style={styles.root}>
+        <Animated.View
+          style={styles.center}
+          entering={FadeIn.duration(360)}
+        >
+          <View style={styles.lockBadge}>
+            <User size={26} strokeWidth={STROKE} color={colors.text} />
+          </View>
+
+          <Text style={styles.brand}>Quem está operando?</Text>
+          <Text style={styles.hint}>
+            Identifica os registros feitos nesta sessão
+          </Text>
+
+          <View style={styles.operatorList}>
+            {OPERATORS.map((name) => (
+              <Pressable
+                key={name}
+                onPress={() => void pickOperator(name)}
+                style={styles.operatorBtn}
+              >
+                <Text style={styles.operatorInitial}>{name.charAt(0)}</Text>
+                <Text style={styles.operatorName}>{name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -146,6 +193,7 @@ const styles = StyleSheet.create({
     fontSize: font.h1,
     color: colors.text,
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   hint: {
     fontFamily: family.body,
@@ -153,6 +201,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.sm,
     marginBottom: spacing.xl,
+    textAlign: 'center',
   },
   fieldWrap: {
     width: '100%',
@@ -187,5 +236,37 @@ const styles = StyleSheet.create({
     fontFamily: family.bodySemi,
     fontSize: font.body,
     color: colors.bg,
+  },
+  operatorList: {
+    width: '100%',
+    gap: spacing.md,
+  },
+  operatorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: alpha.p06,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  operatorInitial: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: alpha.p12,
+    color: colors.text,
+    fontFamily: family.displayBold,
+    fontSize: font.h3,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 40,
+    overflow: 'hidden',
+  },
+  operatorName: {
+    fontFamily: family.bodySemi,
+    fontSize: font.body,
+    color: colors.text,
   },
 });

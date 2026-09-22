@@ -20,6 +20,11 @@ export const DEFAULT_PASSWORD = 'Coruja@1913';
 
 const KEY_PASSWORD = 'laviela.lock.password';
 const KEY_SESSION = 'laviela.lock.session';
+const KEY_OPERATOR = 'laviela.lock.operator';
+
+/** Donos que operam o app — identifica quem fez cada venda na auditoria. */
+export const OPERATORS = ['Caio', 'Matheus'] as const;
+export type Operator = (typeof OPERATORS)[number];
 
 /** Senha vigente: a personalizada, ou a inicial. */
 export async function currentPassword(): Promise<string> {
@@ -74,7 +79,24 @@ export async function hasActiveSession(): Promise<boolean> {
 export async function logout(): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(KEY_SESSION);
+    await SecureStore.deleteItemAsync(KEY_OPERATOR);
   } catch {
     // ignora
+  }
+}
+
+/** Operador da sessão atual — identifica quem registra cada venda. */
+export async function setOperator(name: Operator): Promise<void> {
+  await SecureStore.setItemAsync(KEY_OPERATOR, name);
+}
+
+export async function currentOperator(): Promise<Operator | null> {
+  try {
+    const saved = await SecureStore.getItemAsync(KEY_OPERATOR);
+    return (OPERATORS as readonly string[]).includes(saved ?? '')
+      ? (saved as Operator)
+      : null;
+  } catch {
+    return null;
   }
 }
