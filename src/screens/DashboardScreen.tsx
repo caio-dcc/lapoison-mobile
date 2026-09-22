@@ -166,6 +166,14 @@ export default function DashboardScreen() {
         <Text style={styles.heroValue} numberOfLines={1} adjustsFontSizeToFit>
           {brl(data.month_total)}
         </Text>
+
+        {data.month_profit > 0 ? (
+          <View style={styles.heroProfitRow}>
+            <Text style={styles.heroProfitLabel}>Lucro do mês</Text>
+            <Text style={styles.heroProfitValue}>{brl(data.month_profit)}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.heroMeta}>
           <Text style={styles.heroMetaText}>
             {data.month_count} {data.month_count === 1 ? 'venda' : 'vendas'}
@@ -211,6 +219,14 @@ export default function DashboardScreen() {
           tone="accent"
         />
       </View>
+
+      {/* Lucro semanal + diário (mesmo custo cadastrado nos produtos) */}
+      {data.week_profit > 0 || data.today_profit > 0 ? (
+        <View style={styles.row}>
+          <StatTile label="Lucro semana" value={brl(data.week_profit)} />
+          <StatTile label="Lucro hoje" value={brl(data.today_profit)} />
+        </View>
+      ) : null}
 
       {/* Consumo de insumos */}
       <View style={styles.block}>
@@ -641,6 +657,22 @@ const styles = StyleSheet.create({
     fontFamily: family.displayBold,
     marginTop: spacing.sm,
     letterSpacing: -1,
+  },
+  heroProfitRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  heroProfitLabel: {
+    color: colors.textMuted,
+    fontSize: font.small,
+    fontFamily: family.body,
+  },
+  heroProfitValue: {
+    color: colors.text,
+    fontSize: font.h3,
+    fontFamily: family.bodySemi,
   },
   heroMeta: {
     flexDirection: 'row',

@@ -19,6 +19,8 @@ export interface Product {
   name: string;
   category: ProductCategory;
   price: number;
+  /** Custo de produção do item (insumos). Base do cálculo de lucro. */
+  cost_price: number;
   active: boolean;
   meat_grams: number;
   bun_count: number;
@@ -70,11 +72,13 @@ export interface DashboardOverview {
   today_count: number;
   today_meat: number;
   today_buns: number;
+  today_profit: number;
 
   week_total: number;
   week_count: number;
   week_meat: number;
   week_buns: number;
+  week_profit: number;
 
   month_total: number;
   month_count: number;
@@ -83,6 +87,7 @@ export interface DashboardOverview {
   month_extra: number;
   month_meat: number;
   month_buns: number;
+  month_profit: number;
 
   prev_month_total: number;
   avg_ticket_month: number;

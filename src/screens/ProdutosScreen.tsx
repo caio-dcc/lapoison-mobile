@@ -69,6 +69,7 @@ function ProductForm({
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ProductCategory>(defaultCategory);
   const [price, setPrice] = useState('');
+  const [cost, setCost] = useState('');
   const [meat, setMeat] = useState('');
   const [buns, setBuns] = useState('');
   const [saving, setSaving] = useState(false);
@@ -79,12 +80,14 @@ function ProductForm({
       setName(editing.name);
       setCategory(editing.category);
       setPrice(String(editing.price).replace('.', ','));
+      setCost(editing.cost_price ? String(editing.cost_price).replace('.', ',') : '');
       setMeat(editing.meat_grams ? String(editing.meat_grams) : '');
       setBuns(editing.bun_count ? String(editing.bun_count) : '');
     } else {
       setName('');
       setCategory(defaultCategory);
       setPrice('');
+      setCost('');
       setMeat('');
       setBuns('');
     }
@@ -102,6 +105,7 @@ function ProductForm({
         name: name.trim(),
         category,
         price: parseNum(price),
+        cost_price: parseNum(cost),
         meat_grams: Math.round(parseNum(meat)),
         bun_count: Math.round(parseNum(buns)),
       });
@@ -112,7 +116,7 @@ function ProductForm({
     } finally {
       setSaving(false);
     }
-  }, [name, category, price, meat, buns, editing, onSaved, onClose]);
+  }, [name, category, price, cost, meat, buns, editing, onSaved, onClose]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -171,15 +175,35 @@ function ProductForm({
                 })}
               </View>
 
-              <Text style={styles.fieldLabel}>Preço (R$)</Text>
-              <TextInput
-                value={price}
-                onChangeText={setPrice}
-                placeholder="0,00"
-                placeholderTextColor={colors.textFaint}
-                keyboardType="decimal-pad"
-                style={styles.input}
-              />
+              <View style={styles.rowFields}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fieldLabel}>Preço de venda (R$)</Text>
+                  <TextInput
+                    value={price}
+                    onChangeText={setPrice}
+                    placeholder="0,00"
+                    placeholderTextColor={colors.textFaint}
+                    keyboardType="decimal-pad"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fieldLabel}>Custo (R$)</Text>
+                  <TextInput
+                    value={cost}
+                    onChangeText={setCost}
+                    placeholder="0,00"
+                    placeholderTextColor={colors.textFaint}
+                    keyboardType="decimal-pad"
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.fieldHint}>
+                O custo alimenta o lucro do dashboard. Editar depois não
+                altera vendas já registradas.
+              </Text>
 
               <View style={styles.rowFields}>
                 <View style={{ flex: 1 }}>
@@ -374,6 +398,11 @@ export default function ProdutosScreen() {
                   </Text>
                   <View style={styles.productMetaRow}>
                     <Text style={styles.productMeta}>{brl(p.price)}</Text>
+                    {p.cost_price > 0 ? (
+                      <Text style={styles.productProfit}>
+                        lucro {brl(p.price - p.cost_price)}
+                      </Text>
+                    ) : null}
                     {p.meat_grams > 0 ? (
                       <View style={styles.metaChip}>
                         <Beef size={12} strokeWidth={STROKE} color={colors.textMuted} />
@@ -470,6 +499,7 @@ const styles = StyleSheet.create({
   },
   productName: { color: colors.text, fontSize: font.body, fontFamily: family.bodySemi },
   productMeta: { color: colors.textMuted, fontSize: font.small },
+  productProfit: { color: colors.textFaint, fontSize: font.small },
   productMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',

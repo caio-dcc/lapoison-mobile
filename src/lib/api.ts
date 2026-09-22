@@ -81,7 +81,7 @@ export async function fetchProducts(force = false): Promise<Product[]> {
   const [productsRes, linksRes, groupsRes, valuesRes] = await Promise.all([
     supabase
       .from('products')
-      .select('id, name, category, price, active, meat_grams, bun_count')
+      .select('id, name, category, price, cost_price, active, meat_grams, bun_count')
       .eq('active', true)
       .order('category')
       .order('sort_order'),
@@ -138,6 +138,7 @@ export async function fetchProducts(force = false): Promise<Product[]> {
     name: p.name,
     category: p.category,
     price: Number(p.price),
+    cost_price: Number(p.cost_price ?? 0),
     active: p.active,
     meat_grams: Number(p.meat_grams ?? 0),
     bun_count: Number(p.bun_count ?? 0),
@@ -333,6 +334,8 @@ export interface ProductInput {
   name: string;
   category: ProductCategory;
   price: number;
+  /** Custo de produção (insumos) — base do cálculo de lucro. */
+  cost_price: number;
   meat_grams: number;
   bun_count: number;
 }
@@ -344,6 +347,7 @@ export async function upsertProduct(
     name: input.name,
     category: input.category,
     price: input.price,
+    cost_price: input.cost_price,
     meat_grams: input.meat_grams,
     bun_count: input.bun_count,
   };

@@ -70,6 +70,7 @@ describe('Lógica de Carrinho e Pedidos (Hamburgueria)', () => {
         category: 'comida',
         price: 22,
         active: true,
+        cost_price: 0,
         meat_grams: 100,
         bun_count: 1,
       };
@@ -128,9 +129,9 @@ describe('Lógica de Carrinho e Pedidos (Hamburgueria)', () => {
   describe('groupByCategory()', () => {
     it('separa produtos em comida, bebida e extra', () => {
       const produtos: Product[] = [
-        { id: '1', name: 'A La Smash', category: 'comida', price: 18, active: true, meat_grams: 70, bun_count: 1 },
-        { id: '2', name: 'Coca-Cola', category: 'bebida', price: 7, active: true, meat_grams: 0, bun_count: 0 },
-        { id: '3', name: 'Bacon Extra', category: 'extra', price: 5, active: true, meat_grams: 0, bun_count: 0 },
+        { id: '1', name: 'A La Smash', category: 'comida', price: 18, active: true, cost_price: 0, meat_grams: 70, bun_count: 1 },
+        { id: '2', name: 'Coca-Cola', category: 'bebida', price: 7, active: true, cost_price: 0, meat_grams: 0, bun_count: 0 },
+        { id: '3', name: 'Bacon Extra', category: 'extra', price: 5, active: true, cost_price: 0, meat_grams: 0, bun_count: 0 },
       ];
 
       const agrupado = groupByCategory(produtos);
