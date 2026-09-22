@@ -262,6 +262,10 @@ from bounds;
 $$;
 
 -- Resumo do mês para o calendário: só os dias com venda (payload mínimo).
+-- DROP defensivo: se o banco já tinha uma versão anterior desta função
+-- com uma assinatura de retorno diferente, o CREATE OR REPLACE sozinho
+-- falha com "cannot change return type of existing function".
+drop function if exists month_calendar(date);
 create or replace function month_calendar(target_month date)
 returns table (sale_date date, total numeric, sales_count int)
 language sql
